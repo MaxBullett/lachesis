@@ -52,7 +52,7 @@
   };
 
   environment.systemPackages = with pkgs; [
-    curl git vim wget
+    curl git openssh vim wget
   ];
 
   system.stateVersion = "25.05";
