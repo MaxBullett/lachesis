@@ -8,6 +8,7 @@
   networking.hostName = "marvin";
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nixpkgs.config.allowUnfree = true;
 
   time.timeZone = "Europe/Berlin";
   i18n.defaultLocale = "en_US.UTF-8";
@@ -19,7 +20,9 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.resumeDevice = "/dev/mapper/cryptroot";
-  boot.kernelParams = [ "resume_offset=1068547" ];
+  boot.kernelParams = [ 
+    "resume_offset=1068547" 	       # swap file offset
+  ];
 
   # Networking
   networking.networkmanager.enable = true;
@@ -27,7 +30,7 @@
   # User
   users.users.max = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
+    extraGroups = [ "wheel" "networkmanager" "audio" "video" "docker" ];
   };
 
   # Swap
@@ -43,6 +46,7 @@
   # Desktop
   services.displayManager.cosmic-greeter.enable = true;
   services.desktopManager.cosmic.enable = true;
+  services.desktopManager.cosmic.xwayland.enable = true;
 
   # Apps
   programs.firefox.enable = true;
@@ -52,8 +56,16 @@
   };
 
   environment.systemPackages = with pkgs; [
-    curl git openssh vim wget
+    curl docker-compose git openssh ranger vim wget wally-cli
   ];
+
+  virtualisation.docker = {
+    enable = true;
+    enableOnBoot = true;
+    enableNvidia = false;
+  };
+
+  hardware.keyboard.zsa.enable = true;
 
   system.stateVersion = "25.05";
 }

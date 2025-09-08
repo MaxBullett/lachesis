@@ -2,8 +2,8 @@
   description = "Max's NixOS config";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    home-manager.url = "github:nix-community/home-manager/release-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
 
@@ -18,9 +18,11 @@
         modules = [
           ./hosts/marvin/configuration.nix
           ./hosts/marvin/hardware-configuration.nix
-
-          home-manager.nixosModules.home-manager
-          { home-manager.users.max = import ./home/max.nix; }
+          home-manager.nixosModules.home-manager {
+            home-manager.useGlobalPkgs = true;
+	        home-manager.useUserPackages = true;
+	        home-manager.users.max = import ./home/max.nix;
+	      }
         ];
       };
     };

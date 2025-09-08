@@ -13,49 +13,55 @@
   boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
 
-  fileSystems."/" =
-    { device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+  fileSystems."/" = {
+      device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
       fsType = "btrfs";
       options = [ "subvol=@" ];
     };
 
   boot.initrd.luks.devices."cryptroot".device = "/dev/disk/by-uuid/624708e6-5e38-4e82-956b-3a3c2e961053";
 
-  fileSystems."/home" =
-    { device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+  fileSystems."/boot" = {
+      device = "/dev/disk/by-uuid/B11B-F0BD";
+      fsType = "vfat";
+      options = [ "fmask=0022" "dmask=0022" ];
+    };
+
+  fileSystems."/home" = {
+      device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
       fsType = "btrfs";
       options = [ "subvol=@home" ];
     };
 
-  fileSystems."/nix" =
-    { device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+  fileSystems."/nix" = {
+      device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
       fsType = "btrfs";
       options = [ "subvol=@nix" ];
     };
 
-  fileSystems."/var/log" =
-    { device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+  fileSystems."/var/log" = {
+      device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
       fsType = "btrfs";
       options = [ "subvol=@log" ];
     };
 
-  fileSystems."/swap" =
-    { device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+  fileSystems."/swap" = {
+      device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
       fsType = "btrfs";
       options = [ "subvol=@swap" ];
     };
 
-  fileSystems."/.snapshots" =
-    { device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+  fileSystems."/.snapshots" = {
+      device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
       fsType = "btrfs";
       options = [ "subvol=@snapshots" "compress=zstd" "noatime" ];
     };
 
-  fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/B11B-F0BD";
-      fsType = "vfat";
-      options = [ "fmask=0022" "dmask=0022" ];
-    };
+  fileSystems."/var/lib/docker" = {
+    device = "/dev/disk/by-uuid/09a97e24-53cb-4ba7-b9fb-ef5cbd177932";
+    fsType = "btrfs";
+    options = [ "subvol=@docker" "compress=zstd" "noatime" ];
+  };
 
   swapDevices = [ ];
 
