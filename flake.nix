@@ -1,7 +1,7 @@
 {
   description = "Max's NixOS config";
 
-  inputs = {
+ inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
@@ -9,21 +9,27 @@
 
   outputs = { self, nixpkgs, home-manager, ... }:
   let
-    system = "x86_64-linux";
     lib = nixpkgs.lib;
+    systems = [ "x86_64-linux" ];
+    forAllSystems = f: lib.genAttrs systems (system: f system);
+    mkHost = { hostname, system ? "x86_64-linux", modules ? [ ] }:
+      lib.nixosSystem {
+        inherit system;
+        modules = modules ++ [
+          ./hosts/${hostname}
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.max = import ./home/max.nix;
+          }
+        ];
+      };
   in {
     nixosConfigurations = {
-      marvin = lib.nixosSystem {
-        inherit system;
-        modules = [
-          ./hosts/marvin/configuration.nix
-          ./hosts/marvin/hardware-configuration.nix
-          home-manager.nixosModules.home-manager {
-            home-manager.useGlobalPkgs = true;
-	        home-manager.useUserPackages = true;
-	        home-manager.users.max = import ./home/max.nix;
-	      }
-        ];
+      marvin = mkHost {
+        hostname = "marvin";
+        modules = [ ];
       };
     };
   };
