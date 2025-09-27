@@ -1,36 +1,46 @@
 {
-  description = "Max's NixOS config";
+  description = "Max's NixOS config flake";
 
- inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager.url = "github:nix-community/home-manager";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
-  };
+  inputs = {
+    # Nix Packages
+    # https://search.nixos.org/packages
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-  outputs = { self, nixpkgs, home-manager, ... }:
-  let
-    lib = nixpkgs.lib;
-    systems = [ "x86_64-linux" ];
-    forAllSystems = f: lib.genAttrs systems (system: f system);
-    mkHost = { hostname, system ? "x86_64-linux", modules ? [ ] }:
-      lib.nixosSystem {
-        inherit system;
-        modules = modules ++ [
-          ./hosts/${hostname}
-          home-manager.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.max = import ./home/max.nix;
-          }
-        ];
-      };
-  in {
-    nixosConfigurations = {
-      marvin = mkHost {
-        hostname = "marvin";
-        modules = [ ];
-      };
+    # Home Manager
+    # https://mipmip.github.io/home-manager-option-search
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Map folder structure to flake outputs
+    # https://github.com/numtide/blueprint
+    blueprint = {
+      url = "github:numtide/blueprint";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Declarative disk partitioning
+    # https://github.com/nix-community/disko
+    disko  = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Persist state
+    # https://github.com/nix-community/impermanence
+    impermanence.url = "github:nix-community/impermanence";
+
+    # Hardware optimizations
+    # https://github.com/NixOS/nixos-hardware
+    nixos-hardware.url = "github:nixos/nixos-hardware/master";
   };
+
+  outputs = inputs:
+    inputs.blueprint {
+      inherit inputs;
+      prefix = "nix/";
+      systems = [ "x86_64-linux" ];
+      nixpkgs.config.allowUnfree = true;
+    };
 }

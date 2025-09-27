@@ -1,0 +1,22 @@
+{ config, lib, pkgs, ... }:
+let
+  inherit (lib) mkEnableOption mkIf mkOption types;
+  cfg = config.kernel;
+in {
+  options.kernel = {
+    enable = mkEnableOption "Enable kernel configuration defaults";
+    kernelParams = mkOption {
+      type = with types; listOf str;
+      default = [];
+      description = "Extra kernel command line parameters to append to boot.kernelParams.";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    boot = {
+      kernelPackages = pkgs.linuxPackages_latest;
+      initrd.systemd.enable = true;
+      kernelParams = cfg.kernelParams;
+    };
+  };
+}

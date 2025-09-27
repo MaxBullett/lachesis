@@ -1,0 +1,71 @@
+{ flake, pkgs, ... }:
+{
+  imports = [
+    flake.homeModules.impermanence
+  ];
+
+  home.username = "max";
+  home.homeDirectory = "/home/max";
+
+  userImpermanence = {
+    preserve = {
+      directories = [
+        { directory = ".ssh"; mode = "0700"; }
+        { directory = ".gnupg"; mode = "0700"; }
+        "Documents"
+        "Pictures"
+        "Music"
+        "Videos"
+        "Projects"
+        "work"
+        "code"
+        ".mozilla"
+      ];
+      files = [
+        ".gitconfig"
+        ".zshrc"
+      ];
+    };
+    persist = {
+      directories = [
+        "Downloads"
+      ];
+      files = [ ];
+    };
+  };
+
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    autosuggestion.enable = true;
+    syntaxHighlighting.enable = true;
+    initContent = ''
+      eval "$(starship init zsh)"
+      eval "$(direnv hook zsh)"
+    '';
+  };
+
+  programs.git = {
+    enable = true;
+    userName = "Max Bullett";
+    userEmail = "31956266+MaxBullett@users.noreply.github.com";
+    extraConfig = {
+      gpg.format = "ssh";
+      user.signingkey = "/home/max/.ssh/id_ed25519.pub";
+      commit.gpgsign = true;
+      gpg.ssh.allowedSignersFile = "/home/max/.ssh/allowed_signers";
+    };
+  };
+
+  home.packages = with pkgs; [
+    ripgrep
+    fd
+    unzip
+    jetbrains.idea-ultimate
+    jetbrains.dataspell
+    rclone
+    borgbackup
+  ];
+
+  home.stateVersion = "25.05";
+}
