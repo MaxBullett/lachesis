@@ -32,12 +32,20 @@ in {
   config = {
     nix.settings = {
       experimental-features = [ "nix-command" "flakes" ];
+      download-buffer-size = 524288000; #500MB
       auto-optimise-store = true;
-      builders-use-substitutes = true;
       trusted-users = [ "root" "@wheel" ];
       warn-dirty = false;
-      substituters = [ "https://nix-community.cachix.org" ] ++ cfg.extraSubstituters;
-      trusted-public-keys = [ "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" ] ++ cfg.extraTrustedPublicKeys;
+      builders-use-substitutes = true;
+      substituters = [
+        "https://cache.nixos.org"
+        "https://nix-community.cachix.org"
+        "https://maxbullett.cachix.org"
+      ] ++ cfg.extraSubstituters;
+      trusted-public-keys = [
+        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+        "maxbullett.cachix.org-1:/6uBIAw06/eUnFR/UTgTk4w9ZfSAtrf3a1R9aOkpixY="
+      ] ++ cfg.extraTrustedPublicKeys;
       require-sigs = true;
     };
 
