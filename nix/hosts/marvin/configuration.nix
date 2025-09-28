@@ -98,7 +98,7 @@
 
   # ssh certs
   security.pki.certificates = [
-    (builtins.readFile ./daadev-ca.crt)
+    #(builtins.readFile ./daadev-ca.crt)
   ];
 
   # Debugging

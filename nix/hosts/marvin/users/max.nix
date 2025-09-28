@@ -1,25 +1,28 @@
-{ flake, pkgs, ... }:
+{ config, flake, pkgs, ... }:
 {
   imports = [
-    flake.homeModules.impermanence
+    flake.homeModules.default
   ];
 
   home.username = "max";
   home.homeDirectory = "/home/max";
 
   userImpermanence = {
+    enable = true;
     preserve = {
       directories = [
         { directory = ".ssh"; mode = "0700"; }
         { directory = ".gnupg"; mode = "0700"; }
+        "Code"
         "Documents"
         "Pictures"
         "Music"
         "Videos"
         "Projects"
-        "work"
-        "code"
+        "Work"
         ".mozilla"
+        ".config/JetBrains"
+        ".config/cosmic"
       ];
       files = [
         ".gitconfig"
@@ -33,6 +36,8 @@
       files = [ ];
     };
   };
+
+  steam.enable = true;
 
   programs.zsh = {
     enable = true;
