@@ -17,7 +17,7 @@
   gum.enable = true;
 
   isoImage.contents = [
-    { source = flake.outPath; target = "/root/nix-config"; }
+    { source = flake.outPath; target = "/nix-config"; }
   ];
 
   environment.systemPackages = with pkgs; [

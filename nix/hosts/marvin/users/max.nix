@@ -1,4 +1,4 @@
-{ config, flake, pkgs, ... }:
+{ flake, pkgs, ... }:
 {
   imports = [
     flake.homeModules.default
@@ -11,8 +11,8 @@
     enable = true;
     preserve = {
       directories = [
-        { directory = ".ssh"; mode = "0700"; }
-        { directory = ".gnupg"; mode = "0700"; }
+        ".ssh"
+        ".gnupg"
         "Code"
         "Documents"
         "Pictures"
@@ -26,7 +26,6 @@
       ];
       files = [
         ".gitconfig"
-        ".zshrc"
       ];
     };
     persist = {

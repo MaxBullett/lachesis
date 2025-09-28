@@ -27,7 +27,7 @@ set -Eeuo pipefail
 ################################################################################
 # Defaults
 ################################################################################
-REPO_DIR=${REPO_DIR:-/root/nix-config}
+REPO_DIR=${REPO_DIR:-/iso/nix-config}
 DRY_RUN=${DRY_RUN:-0}
 ASSUME_YES=${ASSUME_YES:-0}
 NO_NETWORK=${NO_NETWORK:-0}
@@ -49,7 +49,7 @@ usage() {
 Usage: installer.sh [options]
 
 Options:
-  --repo DIR            Path to repo (default: /root/nix-config or $REPO_DIR)
+  --repo DIR            Path to repo (default: /iso/nix-config or $REPO_DIR)
   --host NAME           Host name from flake (nixosConfigurations.<NAME>)
   --disk DEV            Target disk device (e.g., /dev/nvme0n1)
   --disko FILE          Path to disko config (default: nix/hosts/<host>/disk-configuration.nix)
@@ -96,8 +96,16 @@ done
 ################################################################################
 # Logging & helpers
 ################################################################################
-mkdir -p "$(dirname "$LOG_FILE")"
-: >"$LOG_FILE"
+# Ensure log directory exists; ignore errors (e.g., when using /tmp)
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+
+# Try to create/touch the requested log file; if that fails, fall back to mktemp
+if ! touch "$LOG_FILE" 2>/dev/null; then
+  LOG_FILE="$(mktemp -t nixos-installer.XXXXXX.log)"
+fi
+
+# Best-effort tighten perms
+chmod 600 "$LOG_FILE" 2>/dev/null || true
 
 log()  { printf "%s %s\n" "[$(date +'%F %T')]" "$*" | tee -a "$LOG_FILE" >&2; }
 fail() { log "ERROR: $*"; exit 1; }
