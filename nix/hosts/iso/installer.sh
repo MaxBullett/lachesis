@@ -1,415 +1,466 @@
 #!/usr/bin/env bash
+# Guided installer for flake-based deployments. Handles disko, install,
+# account password prompts, and cleanup for the selected host.
 set -Eeuo pipefail
+IFS=$'\n\t'
+export LANG=C
 
-# NixOS Guided Installer
-# Overview:
-#   - Interactive by default using gum; non-interactive via flags (e.g., --yes).
-#   - Installs a chosen flake host with disko-install on a selected disk.
-#   - Logs to /tmp/nixos-installer.log (configurable with --log).
-# Structure:
-#   1) CLI/Defaults
-#   2) Logging + helpers
-#   3) Preconditions (root, deps)
-#   4) Network check
-#   5) Host selection + flake check
-#   6) Disko file resolution
-#   7) Disk selection + mount hygiene
-#   8) Preview / Install
-#   9) Post-install password setup
-# Usage:
-#   - Preview (no changes): installer.sh --dry-run
-#   - Non-interactive install: installer.sh --host HOST --disk /dev/sdX --yes --set-passwords --include-root
-#   - Custom repo path: installer.sh --repo /path/to/nix-config
-# Notes:
-#   - gum is a hard dependency.
-#   - This script wipes the selected disk.
+readonly REQUIRED=(gum nix jq lsblk curl nmcli nmtui findmnt disko nixos-install nixos-enter)
+readonly FLAKE=/iso/nix-config
+declare -a DECLARED_DISKS=()
+declare -a INSTALL_USERS=()
+SELECTED_PLAN=""
 
-################################################################################
-# Defaults
-################################################################################
-REPO_DIR=${REPO_DIR:-/iso/nix-config}
-DRY_RUN=${DRY_RUN:-0}
-ASSUME_YES=${ASSUME_YES:-0}
-NO_NETWORK=${NO_NETWORK:-0}
-NO_FLAKE_CHECK=${NO_FLAKE_CHECK:-0}
-LOG_FILE=${LOG_FILE:-/tmp/nixos-installer.log}
-SELECTED_HOST=""
-SELECTED_DISK=""
-DISKO_FILE=""
-SET_PASSWORDS=0
-INCLUDE_ROOT=0
-ALL_USERS=0
-ASK_PER_USER=1
+format_user_list() {
+  local -n list_ref=$1
+  local header=$2
 
-################################################################################
-# CLI
-################################################################################
-usage() {
-  cat <<EOF
-Usage: installer.sh [options]
+  if ((${#list_ref[@]} == 0)); then
+    printf '%s:\n  (none)\n' "$header"
+    return
+  fi
 
-Options:
-  --repo DIR            Path to repo (default: /iso/nix-config or $REPO_DIR)
-  --host NAME           Host name from flake (nixosConfigurations.<NAME>)
-  --disk DEV            Target disk device (e.g., /dev/nvme0n1)
-  --disko FILE          Path to disko config (default: nix/hosts/<host>/disk-configuration.nix)
-  -n, --dry-run         Preview actions; do not modify disks
-  -y, --yes             Assume yes for all prompts (non-interactive)
-  --force               Force unmount of /mnt if busy
-  --no-network          Skip network checks
-  --no-flake-check      Skip 'nix flake check'
-  --set-passwords       Enable post-install password setup
-  --no-passwords        Disable password setup prompt
-  --include-root        Include root in password setup
-  --all-users           Select all normal users automatically
-  --no-ask-per-user     Do not ask per-user; set for selected set silently
-  --log FILE            Write detailed logs to FILE (default: /tmp/nixos-installer.log)
-  -h, --help            Show this help and exit
-EOF
+  local user
+  printf '%s:\n' "$header"
+  for user in "${list_ref[@]}"; do
+    printf '  - %s\n' "$user"
+  done
 }
 
-FORCE_UNMOUNT=0
+info(){ local IFS=' '; gum style --foreground "#8AADF4" "🛈 $*"; }
+ok(){ local IFS=' '; gum style --foreground "#A6DA95" "✔ $*"; }
+warn(){ local IFS=' '; gum style --foreground "#EED49F" "⚠ $*"; }
+err(){ local IFS=' '; gum style --foreground "#ED8796" "✖ $*" >&2; }
 
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --repo) shift; REPO_DIR=${1:-$REPO_DIR} ;;
-    --host) shift; SELECTED_HOST=${1:-} ;;
-    --disk) shift; SELECTED_DISK=${1:-} ;;
-    --disko) shift; DISKO_FILE=${1:-} ;;
-    -n|--dry-run) DRY_RUN=1 ;;
-    -y|--yes) ASSUME_YES=1 ;;
-    --force) FORCE_UNMOUNT=1 ;;
-    --no-network) NO_NETWORK=1 ;;
-    --no-flake-check) NO_FLAKE_CHECK=1 ;;
-    --set-passwords) SET_PASSWORDS=1 ;;
-    --no-passwords) SET_PASSWORDS=0 ;;
-    --include-root) INCLUDE_ROOT=1 ;;
-    --all-users) ALL_USERS=1 ;;
-    --no-ask-per-user) ASK_PER_USER=0 ;;
-    --log) shift; LOG_FILE=${1:-$LOG_FILE} ;;
-    -h|--help) usage; exit 0 ;;
-    *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
-  esac
+run_cmd() {
+  local label=$1
   shift
-done
+  local cmd=("$@")
 
-################################################################################
-# Logging & helpers
-################################################################################
-# Ensure log directory exists; ignore errors (e.g., when using /tmp)
-mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-
-# Try to create/touch the requested log file; if that fails, fall back to mktemp
-if ! touch "$LOG_FILE" 2>/dev/null; then
-  LOG_FILE="$(mktemp -t nixos-installer.XXXXXX.log)"
-fi
-
-# Best-effort tighten perms
-chmod 600 "$LOG_FILE" 2>/dev/null || true
-
-log()  { printf "%s %s\n" "[$(date +'%F %T')]" "$*" | tee -a "$LOG_FILE" >&2; }
-fail() { log "ERROR: $*"; exit 1; }
-
-confirm() {
-  local msg="$1"
-  if [ "$ASSUME_YES" = 1 ]; then return 0; fi
-  gum confirm "$msg"
+  info "$label"
+  if "${cmd[@]}"; then
+    ok "$label"
+  else
+    err "$label failed"
+    exit 1
+  fi
 }
 
-on_error() {
-  local exit_code=$?
-  log "Installer failed with exit code $exit_code"
-  log "See log: $LOG_FILE"
-}
-trap on_error ERR
+plan_step() {
+  local label=$1
+  shift
+  local cmd=("$@")
 
-require() {
-  command -v "$1" >/dev/null 2>&1 || fail "Missing dependency: $1"
-}
-
-################################################################################
-# Preconditions
-################################################################################
-# Only require root for destructive mode
-if [ "$DRY_RUN" != 1 ] && [ "$(id -u)" -ne 0 ]; then
-  fail "Must run this script as root (or use sudo). Tip: preview with --dry-run."
-fi
-
-# Dependencies
-for dep in gum jq nix disko nmcli lsblk parted nixos-enter; do require "$dep"; done
-
-cd "$REPO_DIR" || fail "Cannot cd into repo: $REPO_DIR"
-
-# Friendly header
-if [ "$DRY_RUN" = 1 ]; then
-  log "NixOS Guided Installer — DRY RUN (no changes will be made)"
-else
-  log "NixOS Guided Installer — WARNING: This will DESTROY data on the selected disk"
-fi
-
-if [ "$ASSUME_YES" != 1 ]; then
-  confirm "Proceed?" || exit 1
-fi
-
-################################################################################
-# Network
-################################################################################
-ensure_network() {
-  if [ "$NO_NETWORK" = 1 ]; then return 0; fi
-  if ping -c1 -W1 cache.nixos.org >/dev/null 2>&1; then
+  if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+    warn "dry-run: $label -> $(printf '%q ' "${cmd[@]}")"
     return 0
   fi
-  log "Network not detected (or cache unreachable)."
-  if gum confirm "Open nmtui to connect to Wi‑Fi?"; then nmtui || true; fi
-  # quick nmcli attempt
-  local IFACE SSID PASS
-  IFACE=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="wifi" {print $1; exit}')
-  if [ -n "$IFACE" ]; then
-    if [ "$ASSUME_YES" = 1 ]; then
-      log "Skipping interactive Wi‑Fi in non-interactive mode."
-    else
-      SSID=$(gum input --placeholder "SSID" || true)
-      if [ -n "$SSID" ]; then
-        PASS=$(gum input --password --placeholder "Wi‑Fi password" || true)
-        nmcli dev wifi connect "$SSID" password "$PASS" ifname "$IFACE" || true
-      fi
+
+  run_cmd "$label" "${cmd[@]}"
+}
+
+main() {
+  trap 'err "Installer aborted"; exit 1' INT
+  trap 'err "Unexpected error"; exit 1' ERR
+
+  check_dependencies
+  ensure_root
+  choose_mode
+  confirm_live_environment
+  ensure_network
+  load_flake
+  select_host
+  verify_declared_disks
+  prepare_mount_environment
+  choose_plan_of_action
+  summarize
+  confirm_execution
+  execute_plan
+  finalize_installation
+}
+
+check_dependencies() {
+  for dep in "${REQUIRED[@]}"; do
+    if ! command -v "$dep" >/dev/null 2>&1; then
+      err "Missing dependency: $dep"
+      exit 1
+    fi
+  done
+}
+
+ensure_root() {
+  if [[ $(id -u) -ne 0 ]]; then
+    err "Must run as root"
+    exit 1
+  fi
+}
+
+choose_mode() {
+  gum style --border normal --margin "1 0" --padding "1 2" --bold "NixOS Guided Installer"
+
+  local choice
+  choice=$(printf "%s\n" "Proceed" "Dry-run" "Abort" | gum choose --header "Mode")
+  case "$choice" in
+    Abort) info "Exit"; exit 0 ;;
+    Dry-run) DRY_RUN=1 ;;
+    Proceed) DRY_RUN=0 ;;
+  esac
+
+  if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+    warn "Dry-run mode: only printing actions"
+  fi
+}
+
+confirm_live_environment() {
+  if [[ ! -e /iso && -e /run/current-system ]]; then
+    if ! gum confirm --default=false "Not running from live installer. Continue?"; then
+      exit 1
     fi
   fi
 }
-ensure_network
 
-################################################################################
-# Flake and host selection
-################################################################################
-list_hosts() {
-  nix eval --json --apply builtins.attrNames .#nixosConfigurations 2>/dev/null | jq -r '.[]'
+ensure_network() {
+  until has_network; do
+    warn "No network connection"
+    if gum confirm "Open nmtui to configure network?"; then
+      nmtui
+    else
+      err "Cannot continue without a network connection"
+      exit 1
+    fi
+  done
+
+  ok "Network OK"
+}
+
+has_network() {
+  curl -fsI --max-time 5 https://cache.nixos.org >/dev/null 2>&1
+}
+
+load_flake() {
+  if [[ ! -e "$FLAKE/flake.nix" ]]; then
+    err "Missing $FLAKE/flake.nix on the ISO"
+    exit 1
+  fi
+
+  cd "$FLAKE"
 }
 
 select_host() {
-  if [ -n "$SELECTED_HOST" ]; then echo "$SELECTED_HOST"; return; fi
-  mapfile -t HOSTS < <(list_hosts)
-  [ ${#HOSTS[@]} -gt 0 ] || fail "No nixosConfigurations found in flake."
-  printf "%s\n" "${HOSTS[@]}" | gum choose --limit 1 --header "Select target host"
-}
-
-HOST=$(select_host)
-[ -n "$HOST" ] || fail "No host selected"
-
-if [ "$NO_FLAKE_CHECK" != 1 ]; then
-  log "Checking flake... (use --no-flake-check to skip)"
-  nix flake check --quiet || log "flake check reported issues; continuing"
-fi
-
-################################################################################
-# Disko file resolution
-################################################################################
-resolve_disko_file() {
-  if [ -n "$DISKO_FILE" ]; then
-    [ -f "$DISKO_FILE" ] || fail "Disko file not found: $DISKO_FILE"
-    echo "$DISKO_FILE"; return
+  local host_list
+  if ! host_list=$(nix eval --json --no-write-lock-file .#nixosConfigurations \
+      --apply 'x: builtins.attrNames x' 2>&1 | jq -r '.[]'); then
+    err "Failed to evaluate nixosConfigurations"
+    exit 1
   fi
-  local df="nix/hosts/${HOST}/disk-configuration.nix"
-  if [ -f "$df" ]; then echo "$df"; return; fi
-  if [ "$ASSUME_YES" = 1 ]; then
-    fail "No default disko file found for host and non-interactive mode enabled"
+
+  if [[ -z "$host_list" ]]; then
+    err "No nixosConfigurations found in flake"
+    exit 1
   fi
-  log "No disk-configuration.nix at $df"
-  local ALT
-  ALT=$(gum input --placeholder "Path to disko config (e.g., nix/hosts/laptop/disk-configuration.nix)" || true)
-  if [ -z "$ALT" ] || [ ! -f "$ALT" ]; then
-    fail "Disko config not provided or not found"
+
+  if [[ -n ${HOST:-} ]] && grep -qx "$HOST" <<<"$host_list"; then
+    SELECTED_HOST=$HOST
+  else
+    SELECTED_HOST=$(printf "%s\n" "$host_list" | gum choose --header "Select host")
   fi
-  echo "$ALT"
+
+  if [[ -z "$SELECTED_HOST" ]]; then
+    err "No host selected"
+    exit 1
+  fi
+
+  export FLAKE HOST=$SELECTED_HOST
 }
 
-DISKO_FILE=$(resolve_disko_file)
-log "Using disko file: $DISKO_FILE"
+verify_declared_disks() {
+  local json
+  if ! json=$(nix eval --json --no-write-lock-file \
+      ".#nixosConfigurations.${HOST}.config.disko.devices.disk" \
+      --apply 'disks: builtins.map (disk: disk.device) (builtins.attrValues disks)' 2>/dev/null); then
+    warn "Unable to load disk definitions; skipping disk preflight"
+    return
+  fi
 
-################################################################################
-# Disk selection & checks
-################################################################################
-choose_disk() {
-  if [ -n "$SELECTED_DISK" ]; then echo "$SELECTED_DISK"; return; fi
-  mapfile -t DISKS < <(lsblk -dpno NAME,SIZE,MODEL,TYPE | awk '$NF=="disk" {print $1"  ["$2"]  "$3}')
-  [ ${#DISKS[@]} -gt 0 ] || fail "No disks detected"
-  local SEL
-  SEL=$(printf "%s\n" "${DISKS[@]}" | gum choose --limit 1 --header "Select target disk (WILL BE WIPED)")
-  echo "$SEL" | awk '{print $1}'
+  if [[ $(jq -r type <<<"$json") != "array" ]]; then
+    warn "Disk definitions did not produce a list; skipping disk preflight"
+    return
+  fi
+
+  DECLARED_DISKS=()
+  mapfile -t DECLARED_DISKS < <(jq -r 'map(select(. != null and . != ""))[]' <<<"$json")
+
+  if ((${#DECLARED_DISKS[@]} == 0)); then
+    warn "No disks declared in configuration; skipping disk preflight"
+    return
+  fi
+
+  local missing=()
+  for idx in "${!DECLARED_DISKS[@]}"; do
+    local device="${DECLARED_DISKS[$idx]}"
+    if [[ $device != /* ]]; then
+      device="/dev/disk/by-id/$device"
+    fi
+
+    DECLARED_DISKS[idx]="$device"
+    if [[ ! -b "$device" ]]; then
+      missing+=("$device")
+    fi
+  done
+
+  if ((${#missing[@]} > 0)); then
+    err "Missing block devices: ${missing[*]}"
+    exit 1
+  fi
+
+  ok "Declared disks present"
 }
 
-DISK=$(choose_disk)
-[ -n "$DISK" ] || fail "No disk selected"
-export DISK  # for disko configs using env.DISK
+fetch_install_users() {
+  INSTALL_USERS=()
 
-# Sanity: ensure target looks like a disk
-[ -b "$DISK" ] || fail "Not a block device: $DISK"
-lsblk -no TYPE "$DISK" | grep -qx "disk" || fail "$DISK is not a disk device"
+  local json
+  if ! json=$(nix eval --json --no-write-lock-file \
+      ".#nixosConfigurations.${HOST}.config.users.users" \
+      --apply 'users: let names = builtins.attrNames users; in builtins.filter (name: let user = builtins.getAttr name users; in (user.isNormalUser or false) || name == "root") names' 2>/dev/null); then
+    return 1
+  fi
 
-################################################################################
-# Mount hygiene
-################################################################################
-show_mnt_mounts() {
-  log "Current mounts under /mnt:"; mount | grep "/mnt" || true
+  if [[ $(jq -r type <<<"$json" 2>/dev/null) != "array" ]]; then
+    return 1
+  fi
+
+  mapfile -t INSTALL_USERS < <(jq -r '.[]' <<<"$json")
+  return 0
 }
 
-umount_all_mnt() {
-  if mount | grep -q "^.* on /mnt"; then
-    show_mnt_mounts
-    if [ "$ASSUME_YES" = 1 ] || confirm "Unmount everything under /mnt now?"; then
-      # Try lazy then force if requested
-      umount -R /mnt 2>/dev/null || true
-      if mount | grep -q "^.* on /mnt"; then
-        if [ "$FORCE_UNMOUNT" = 1 ]; then
-          log "Forcing lazy unmount of /mnt"
-          umount -Rl /mnt || true
+prepare_mount_environment() {
+  info "Preparing mount environment"
+
+  local -a mounts=()
+
+  if mountpoint -q /mnt; then
+    while IFS= read -r mp; do
+      [[ -z "$mp" ]] && continue
+      mounts+=("$mp")
+    done < <(findmnt --noheadings --output TARGET --submounts /mnt 2>/dev/null || true)
+  fi
+
+  local disk
+  for disk in "${DECLARED_DISKS[@]}"; do
+    while IFS= read -r mp; do
+      [[ -z "$mp" || "$mp" == "[SWAP]" ]] && continue
+      mounts+=("$mp")
+    done < <(lsblk -rno MOUNTPOINT "$disk" 2>/dev/null || true)
+  done
+
+  if ((${#mounts[@]} > 0)); then
+    declare -A seen=()
+    local target
+    for target in "${mounts[@]}"; do
+      [[ -z "$target" ]] && continue
+      if [[ -z ${seen[$target]+_} ]]; then
+        seen[$target]=1
+
+        if [[ "$target" == "/" ]]; then
+          err "Refusing to unmount /. Please run from a live environment."
+          exit 1
+        fi
+
+        if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+          warn "dry-run: would unmount --recursive $target"
         else
-          fail "/mnt still mounted; retry with --force or unmount manually"
+          if mountpoint -q "$target"; then
+            warn "Unmounting $target"
+            if ! umount --recursive "$target" 2>/dev/null; then
+              if ! umount "$target"; then
+                err "Failed to unmount $target"
+                exit 1
+              fi
+            fi
+          fi
         fi
       fi
+    done
+  fi
+
+  if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+    warn "dry-run: would ensure /mnt exists and is empty"
+  else
+    mkdir -p /mnt
+    if [[ -n $(ls -A /mnt 2>/dev/null) ]]; then
+      warn "/mnt not empty; cleaning up"
+      find /mnt -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    fi
+  fi
+
+  ok "/mnt ready"
+}
+
+choose_plan_of_action() {
+  local -a options=(
+    "full-install::Full install - wipe disks, run disko, mount, build, and switch"
+    "format-only::Format & mount - run disko and mount volumes, skip OS build"
+    "mount-only::Mount existing filesystem - skip formatting and install"
+    "abort::Abort"
+  )
+
+  local preset=${PLAN:-}
+  if [[ -n $preset ]]; then
+    case $preset in
+      full-install|format-only|mount-only) SELECTED_PLAN=$preset ;;
+      abort) info "Abort requested via PLAN variable"; exit 0 ;;
+      *) warn "Unknown PLAN '$preset'; falling back to interactive selection";;
+    esac
+  fi
+
+  if [[ -z $SELECTED_PLAN ]]; then
+    local formatted=()
+    local entry
+    for entry in "${options[@]}"; do
+      formatted+=("${entry#*::}")
+    done
+
+    local choice
+    choice=$(printf "%s\n" "${formatted[@]}" | gum choose --header "Select installer plan") || {
+      err "Plan selection cancelled"
+      exit 1
+    }
+
+    [[ -z $choice ]] && {
+      err "No plan selected"
+      exit 1
+    }
+
+    case "$choice" in
+      "Full install - wipe disks, run disko, mount, build, and switch") SELECTED_PLAN=full-install ;;
+      "Format & mount - run disko and mount volumes, skip OS build") SELECTED_PLAN=format-only ;;
+      "Mount existing filesystem - skip formatting and install") SELECTED_PLAN=mount-only ;;
+      "Abort") info "Exit"; exit 0 ;;
+      *) err "Unknown selection"; exit 1 ;;
+    esac
+  fi
+
+  if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+    warn "dry-run: plan selected = $SELECTED_PLAN"
+  else
+    ok "Plan selected: $SELECTED_PLAN"
+  fi
+
+  export PLAN=$SELECTED_PLAN
+}
+
+execute_plan() {
+  case $SELECTED_PLAN in
+    full-install)
+      plan_step "Wipe, format, and mount target filesystems" disko --mode destroy,format,mount --flake "${FLAKE}#${HOST}"
+      plan_step "Install NixOS" nixos-install --root /mnt --flake "${FLAKE}#${HOST}" --no-root-password
+      ;;
+    format-only)
+      plan_step "Wipe, format, and mount target filesystems" disko --mode destroy,format,mount --flake "${FLAKE}#${HOST}"
+      ;;
+    mount-only)
+      plan_step "Mount target filesystems" disko --mode mount --flake "${FLAKE}#${HOST}"
+      ;;
+    *)
+      err "Unknown plan '$SELECTED_PLAN'"
+      exit 1
+      ;;
+  esac
+}
+
+finalize_installation() {
+  case $SELECTED_PLAN in
+    full-install)
+      if ((${#INSTALL_USERS[@]} == 0)); then
+        if ! fetch_install_users; then
+          warn "Unable to determine users for password setup; skipping automatic password prompts"
+        fi
+      fi
+
+      if ((${#INSTALL_USERS[@]} > 0)); then
+        local summary
+        summary=$(format_user_list INSTALL_USERS "Setting passwords for")
+        info "$summary"
+        local user
+        for user in "${INSTALL_USERS[@]}"; do
+          plan_step "Set password for ${user}" nixos-enter --root /mnt -- passwd "$user"
+        done
+      else
+        warn "No users discovered for password setup"
+      fi
+
+      plan_step "Unmount target filesystems" disko --mode unmount --flake "${FLAKE}#${HOST}"
+
+      if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+        warn "dry-run: would prompt to reboot"
+      else
+        if gum confirm --default=true "Reboot into installed system now?"; then
+          info "Rebooting into installed system"
+          systemctl reboot
+        else
+          info "Reboot skipped; system remains mounted at /mnt"
+        fi
+      fi
+      ;;
+    format-only)
+      warn "Volumes remain mounted at /mnt for manual steps; run 'disko --mode unmount --flake \"${FLAKE}#${HOST}\"' when finished"
+      ;;
+    mount-only)
+      warn "Mount-only plan selected; no automatic unmount performed"
+      ;;
+    *)
+      warn "Skipping finalize step for plan '$SELECTED_PLAN'"
+      ;;
+  esac
+}
+
+summarize() {
+  if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+    warn "dry-run: would use host=$HOST from flake=$FLAKE"
+  else
+    ok "Using host=$HOST from flake=$FLAKE"
+  fi
+
+  if ((${#DECLARED_DISKS[@]} > 0)); then
+    info "Target disks: ${DECLARED_DISKS[*]}"
+  fi
+
+  if [[ -n $SELECTED_PLAN ]]; then
+    info "Selected plan: $SELECTED_PLAN"
+  fi
+
+  if [[ $SELECTED_PLAN == "full-install" ]]; then
+    if fetch_install_users; then
+      if ((${#INSTALL_USERS[@]} > 0)); then
+        local summary
+        summary=$(format_user_list INSTALL_USERS "Users queued for password setup")
+        info "$summary"
+      else
+        warn "No normal users found for password setup"
+      fi
     else
-      fail "Cannot continue with /mnt busy"
+      warn "Unable to evaluate users; password setup may need manual handling"
     fi
+
+    info "Installer will prompt for passwords, unmount, then ask before rebooting"
   fi
 }
 
-show_mnt_mounts
-umount_all_mnt
+confirm_execution() {
+  if [[ $SELECTED_PLAN == "mount-only" ]]; then
+    return
+  fi
 
-################################################################################
-# Execute steps
-################################################################################
-preview() {
-  log "[DRY-RUN] Would WIPE and partition $DISK using $DISKO_FILE"
-  gum spin --title "Previewing Disko plan (no changes)..." -- \
-      disko --dry-run --mode zap_create_mount "$DISKO_FILE" | tee -a "$LOG_FILE"
-  log "[DRY-RUN] Would run: disko-install --disko $DISKO_FILE --flake .#$HOST --yes"
+  if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+    warn "dry-run: skipping confirmation prompt"
+    return
+  fi
+
+  if ! gum confirm --default=true "Proceed with plan '$SELECTED_PLAN'?"; then
+    info "Install aborted at confirmation step"
+    exit 0
+  fi
 }
 
-run_install() {
-  log "About to WIPE and partition $DISK using $DISKO_FILE"
-  if [ "$ASSUME_YES" != 1 ]; then
-    confirm "I understand this is destructive. Continue?" || exit 1
-  fi
-  gum spin --title "Partitioning, mounting and installing ($HOST) with disko-install..." -- \
-      disko-install --disko "$DISKO_FILE" --flake ".#$HOST" --yes | tee -a "$LOG_FILE"
-}
-
-################################################################################
-# Post-install password setup (dynamic, no hard-coded names)
-################################################################################
-get_normal_users() {
-  # List users with UID >= 1000 (exclude nobody), login shell not nologin/false
-  if [ ! -f /mnt/etc/passwd ]; then
-    log "No /mnt/etc/passwd found; skipping user discovery"
-    return 0
-  fi
-  awk -F: '($3 >= 1000 && $1 != "nobody" && $7 !~ /(nologin|false)$/) {print $1}' /mnt/etc/passwd
-}
-
-choose_users() {
-  # Args: list of users on stdin; outputs selected users (newline separated)
-  local users; mapfile -t users
-  if [ ${#users[@]} -eq 0 ]; then return 0; fi
-  if [ "$ALL_USERS" = 1 ]; then
-    printf "%s\n" "${users[@]}"
-    return 0
-  fi
-  if [ "$ASSUME_YES" = 1 ]; then
-    # Non-interactive: default to all
-    printf "%s\n" "${users[@]}"
-    return 0
-  fi
-  printf "%s\n" "${users[@]}" | gum choose --no-limit --header "Select users to set passwords for"
-}
-
-prompt_secret() {
-  # Prints the confirmed secret to stdout; returns non-zero on abort
-  local user="$1" p1 p2
-  while true; do
-    if command -v gum >/dev/null 2>&1; then
-      p1=$(gum input --password --placeholder "Password for $user" || true)
-      p2=$(gum input --password --placeholder "Confirm password for $user" || true)
-    else
-      read -r -s -p "Enter password for $user: " p1; echo
-      read -r -s -p "Confirm password for $user: " p2; echo
-    fi
-    if [ -z "$p1" ]; then
-      if [ "$ASSUME_YES" = 1 ]; then return 1; fi
-      if confirm "Empty password for $user?"; then break; else continue; fi
-    fi
-    if [ "$p1" = "$p2" ]; then
-      printf "%s" "$p1"
-      return 0
-    fi
-    log "Passwords do not match. Please try again."
-  done
-  printf "%s" "$p1"
-}
-
-set_password_for_user() {
-  local user="$1" pass="$2"
-  # Use nixos-enter to ensure proper environment; avoid logging the secret
-  # shellcheck disable=SC2016
-  nixos-enter --root /mnt -- sh -c 'umask 077; read -r line; echo "$line" | chpasswd' <<EOF
-${user}:${pass}
-EOF
-}
-
-maybe_run_password_setup() {
-  # Decide if we should run password setup
-  if [ "$DRY_RUN" = 1 ]; then return 0; fi
-  # If explicitly disabled
-  if [ "$SET_PASSWORDS" = 0 ] && [ "$ASSUME_YES" = 1 ]; then return 0; fi
-  # In interactive mode, ask unless explicitly enabled
-  if [ "$SET_PASSWORDS" != 1 ] && [ "$ASSUME_YES" != 1 ]; then
-    if ! confirm "Set user passwords now?"; then return 0; fi
-  fi
-
-  # Build selection list
-  local users sel users_arr
-  sel=()
-  if [ "$INCLUDE_ROOT" = 1 ]; then sel+=(root); fi
-
-  mapfile -t users < <(get_normal_users)
-  if [ ${#users[@]} -gt 0 ]; then
-    mapfile -t users_arr < <(printf "%s\n" "${users[@]}" | choose_users)
-    # If choose_users printed nothing (e.g., cancel), default to all in non-interactive
-    if [ ${#users_arr[@]} -eq 0 ] && [ "$ASSUME_YES" = 1 ]; then users_arr=("${users[@]}"); fi
-    sel+=("${users_arr[@]}")
-  fi
-
-  # Deduplicate selection
-  if [ ${#sel[@]} -gt 0 ]; then
-    mapfile -t sel < <(printf "%s\n" "${sel[@]}" | awk '!x[$0]++')
-  fi
-
-  if [ ${#sel[@]} -eq 0 ]; then
-    log "No users selected for password setup; skipping"
-    return 0
-  fi
-
-  log "Setting passwords for: ${sel[*]}"
-  local u pw
-  for u in "${sel[@]}"; do
-    if [ "$ASK_PER_USER" = 1 ] && [ "$ASSUME_YES" != 1 ]; then
-      if ! confirm "Set password for $u?"; then continue; fi
-    fi
-    pw=$(prompt_secret "$u") || { log "Skipped $u"; continue; }
-    set_password_for_user "$u" "$pw"
-    # Wipe variable asap
-    pw=""
-    log "Password set for $u"
-  done
-}
-
-################################################################################
-# Main
-################################################################################
-if [ "$DRY_RUN" = 1 ]; then
-  preview
-  log "Preview complete."
-else
-  run_install
-  maybe_run_password_setup
-  log "Installation complete. You can now reboot into your new system. Run: reboot"
-fi
+main "$@"
