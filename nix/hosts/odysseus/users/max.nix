@@ -21,12 +21,11 @@
         "Projects"
         "Work"
         ".mozilla"
-        ".config/JetBrains"
         ".config/cosmic"
+        ".config/git"
+        ".config/JetBrains"
       ];
-      files = [
-        ".gitconfig"
-      ];
+      files = [];
     };
     persist = {
       directories = [

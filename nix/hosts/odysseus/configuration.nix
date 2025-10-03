@@ -43,7 +43,6 @@
     };
   };
 
-
   users.users.max = {
     isNormalUser = true;
     home = "/home/max";
