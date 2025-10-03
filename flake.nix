@@ -36,11 +36,26 @@
     nixos-hardware.url = "github:nixos/nixos-hardware/master";
   };
 
-  outputs = inputs:
-    inputs.blueprint {
-      inherit inputs;
-      prefix = "nix/";
-      systems = [ "x86_64-linux" ];
-      nixpkgs.config.allowUnfree = true;
+  outputs = inputs@{ self, nixpkgs, ... }:
+    let
+      extendedLib = import ./nix/lib {
+        inherit inputs;
+        flake = self;
+      };
+
+      extendedInputs = inputs // {
+        nixpkgs = nixpkgs // { lib = extendedLib; };
+      };
+    in
+    let
+      result = inputs.blueprint {
+        inputs = extendedInputs;
+        prefix = "nix/";
+        systems = [ "x86_64-linux" ];
+        nixpkgs.config.allowUnfree = true;
+      };
+    in
+    result // {
+      lib = extendedLib;
     };
 }
