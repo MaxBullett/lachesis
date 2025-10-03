@@ -1,7 +1,6 @@
-{ config, flake, options, lib, ... }:
+{ config, lib, options, ... }:
 let
-  inherit (lib) mkEnableOption mkIf;
-  inherit (flake.lib) mkIfOptionEnabled;
+  inherit (lib) mkEnableOption mkIf mkIfOptionEnabled;
   cfg = config.__NAME__;
 in {
   options.__NAME__ = {

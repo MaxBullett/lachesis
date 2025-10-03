@@ -1,7 +1,15 @@
-{ config, flake, lib, options, pkgs, ... }:
+{ config, lib, options, pkgs, ... }:
 let
-  inherit (lib) any attrNames attrValues mkAfter mkEnableOption mkIf;
-  inherit (flake.lib) filterNormalUsers filterSudoUsers mkIfOptionEnabled;
+  inherit (lib)
+    any
+    attrNames
+    attrValues
+    filterNormalUsers
+    filterSudoUsers
+    mkAfter
+    mkEnableOption
+    mkIf
+    mkIfOptionEnabled;
   cfg = config.docker;
 in {
   options.docker = {

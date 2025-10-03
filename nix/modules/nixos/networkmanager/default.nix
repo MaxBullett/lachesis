@@ -1,7 +1,6 @@
-{ config, flake, lib, options, ... }:
+{ config, lib, options, ... }:
 let
-  inherit (lib) mkEnableOption mkIf mkOption optionalAttrs types;
-  inherit (flake.lib) mkIfOptionEnabled;
+  inherit (lib) mkEnableOption mkIf mkIfOptionEnabled mkOption optionalAttrs types;
   cfg = config.networkmanager;
 in {
   options.networkmanager = {

@@ -1,7 +1,6 @@
-{ config, flake, lib, options, ... }:
+{ config, lib, options, ... }:
 let
-  inherit (lib) mkEnableOption mkIf mkOption types;
-  inherit (flake.lib) mkIfOptionEnabled;
+  inherit (lib) mkEnableOption mkIf mkIfOptionEnabled mkOption types;
   cfg = config.bluetooth;
 in {
   options.bluetooth = {

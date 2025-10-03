@@ -1,6 +1,6 @@
 { config, inputs, lib, ... }:
-with lib;
 let
+  inherit (lib) mkEnableOption mkIf mkOption types;
   cfg = config.userImpermanence;
   username = config.home.username or (throw "home.username must be set before importing home.modules.impermanence");
 in {

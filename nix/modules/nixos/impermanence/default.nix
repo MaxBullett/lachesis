@@ -1,6 +1,13 @@
 { config, inputs, lib, ... }:
 let
-  inherit (lib) mkEnableOption mkIf mkOption types;
+  inherit (lib)
+    filterNormalUsers
+    mapAttrsToList
+    mkEnableOption
+    mkIf
+    mkOption
+    removePrefix
+    types;
   cfg = config.impermanence;
 in {
   imports = [ inputs.impermanence.nixosModules.impermanence ];
