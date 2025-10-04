@@ -35,6 +35,7 @@
         files = [ ];
       };
     };
+    direnv.enable = true;
     steam.enable = true;
   };
 

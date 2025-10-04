@@ -1,10 +1,13 @@
 { pkgs, ... }:
 pkgs.mkShell {
   buildInputs = with pkgs; [
+    deadnix
     git
-    vim
-    tmux
+    nixd
     nixfmt-rfc-style
+    statix
+    tmux
+    vim
   ];
 
   shellHook = ''

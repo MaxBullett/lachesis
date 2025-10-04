@@ -51,7 +51,7 @@ in {
 
     programs.nh = mkIf cfg.nh {
       enable = true;
-      flake = "/etc/nixos";
+      flake = "git+ssh://git@github.com:MaxBullett/lachesis.git?ref=main";
       clean = {
         enable = true;
         extraArgs = "--keep-since 1w --keep 5";
