@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkOption types;
-  cfg = config.time;
+  cfg = config.lachesis.time;
 in {
-  options.time = {
+  options.lachesis.time = {
     enable = mkEnableOption "Enable time configuration defaults";
 
     defaultTimeZone = mkOption {

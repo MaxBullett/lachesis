@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkIf mkOption types;
-  cfg = config.nix;
+  cfg = config.lachesis.nix;
 in {
-  options.nix = {
+  options.lachesis.nix = {
     extraSubstituters = mkOption {
       type = with types; listOf str;
       default = [];

@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkEnableOption mkIf;
-  cfg = config.power;
+  cfg = config.lachesis.power;
 in {
-  options.power = {
+  options.lachesis.power = {
     enable = mkEnableOption "Enable power-profiles-daemon (power management)";
   };
 

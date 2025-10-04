@@ -6,7 +6,7 @@ IFS=$'\n\t'
 export LANG=C
 
 readonly REQUIRED=(gum nix jq lsblk curl nmcli nmtui findmnt disko nixos-install nixos-enter)
-readonly FLAKE=/iso/nix-config
+readonly FLAKE=/iso/lachesis
 declare -a DECLARED_DISKS=()
 declare -a INSTALL_USERS=()
 SELECTED_PLAN=""

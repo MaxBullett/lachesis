@@ -1,9 +1,9 @@
 { config, lib, options, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkIfOptionEnabled mkOption types;
-  cfg = config.bluetooth;
+  cfg = config.lachesis.bluetooth;
 in {
-  options.bluetooth = {
+  options.lachesis.bluetooth = {
     enable = mkEnableOption "Enable Bluetooth";
     experimental = mkOption {
       type = types.bool;
@@ -26,8 +26,8 @@ in {
       };
     };
   })
-  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options config {
-    impermanence.persist.directories = [
+  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options.lachesis config {
+    lachesis.impermanence.persist.directories = [
       { directory = "/var/lib/bluetooth"; user = "root"; group = "root"; mode = "0700"; }
     ];
   }));

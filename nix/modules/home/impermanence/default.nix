@@ -1,12 +1,12 @@
 { config, inputs, lib, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkOption types;
-  cfg = config.userImpermanence;
+  cfg = config.lachesis.userImpermanence;
   username = config.home.username or (throw "home.username must be set before importing home.modules.impermanence");
 in {
   imports = [ inputs.impermanence.homeManagerModules.impermanence ];
 
-  options.userImpermanence = {
+  options.lachesis.userImpermanence = {
     enable = mkEnableOption "impermanence with dual persistent roots (/persist and /preserve)";
     persist = {
       path = mkOption {

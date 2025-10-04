@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkDefault mkEnableOption mkIf;
-  cfg = config.nixpkgs;
+  cfg = config.lachesis.nixpkgs;
 in {
-  options.nixpkgs = {
+  options.lachesis.nixpkgs = {
     enable = mkEnableOption "Enable nixpkgs defaults";
   };
 

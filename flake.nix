@@ -1,5 +1,5 @@
 {
-  description = "Max's NixOS config flake";
+  description = "Lachesis, disposer of lots (NixOS config flake)";
 
   inputs = {
     # Nix Packages

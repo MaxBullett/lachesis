@@ -1,9 +1,9 @@
 { config, lib, options, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkIfOptionEnabled mkOption optionalAttrs types;
-  cfg = config.networkmanager;
+  cfg = config.lachesis.networkmanager;
 in {
-  options.networkmanager = {
+  options.lachesis.networkmanager = {
     enable = mkEnableOption "Enable NetworkManager";
 
     wifiBackend = mkOption {
@@ -33,8 +33,8 @@ in {
       wireless.iwd.enable = true;
     };
   })
-  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options config {
-    impermanence.persist.directories = [
+  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options.lachesis config {
+    lachesis.impermanence.persist.directories = [
       { directory = "/etc/NetworkManager/system-connections"; user = "root"; group = "root"; mode = "0700"; }
       { directory = "/var/lib/NetworkManager"; user = "root"; group = "root"; mode = "0700"; }
     ];

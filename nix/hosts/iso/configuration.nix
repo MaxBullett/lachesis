@@ -8,16 +8,18 @@
 
   networking.hostName = lib.mkDefault (builtins.baseNameOf ./.);
 
-  nix.updates = false;
-  nixpkgs.enable = true;
-  locale.enable = true;
-  time.enable = true;
-  disko.enable = true;
-  networkmanager.enable = true;
-  gum.enable = true;
+  lachesis = {
+    nix.updates = false;
+    nixpkgs.enable = true;
+    locale.enable = true;
+    time.enable = true;
+    disko.enable = true;
+    networkmanager.enable = true;
+    gum.enable = true;
+  };
 
   isoImage.contents = [
-    { source = flake.outPath; target = "/nix-config"; }
+    { source = flake.outPath; target = "/lachesis"; }
   ];
 
   environment.systemPackages = with pkgs; [

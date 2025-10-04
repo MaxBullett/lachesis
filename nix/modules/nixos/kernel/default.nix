@@ -1,9 +1,9 @@
 { config, lib, pkgs, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkOption types;
-  cfg = config.kernel;
+  cfg = config.lachesis.kernel;
 in {
-  options.kernel = {
+  options.lachesis.kernel = {
     enable = mkEnableOption "Enable kernel configuration defaults";
     kernelParams = mkOption {
       type = with types; listOf str;

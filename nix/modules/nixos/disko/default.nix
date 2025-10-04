@@ -1,11 +1,11 @@
 { config, inputs, lib, pkgs, ... }:
 let
   inherit (lib) mkEnableOption mkIf;
-  cfg = config.disko;
+  cfg = config.lachesis.disko;
 in {
   imports = [ inputs.disko.nixosModules.disko ];
 
-  options.disko = {
+  options.lachesis.disko = {
     enable = mkEnableOption "Declarative disk partitioning with disko";
   };
 

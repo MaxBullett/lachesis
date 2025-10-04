@@ -10,9 +10,9 @@ let
     mkEnableOption
     mkIf
     mkIfOptionEnabled;
-  cfg = config.docker;
+  cfg = config.lachesis.docker;
 in {
-  options.docker = {
+  options.lachesis.docker = {
     enable = mkEnableOption "Enable Docker";
   };
 
@@ -38,8 +38,8 @@ in {
 
     environment.systemPackages = [ pkgs.docker-compose ];
   })
-  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options config {
-    impermanence.persist.directories = [
+  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options.lachesis config {
+    lachesis.impermanence.persist.directories = [
       { directory = "/var/lib/docker"; user = "root"; group = "root"; mode = "0710"; }
     ];
   }));

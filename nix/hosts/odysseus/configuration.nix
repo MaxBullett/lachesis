@@ -8,39 +8,42 @@
   ];
   networking.hostName = lib.mkDefault (builtins.baseNameOf ./.);
 
-  nixpkgs.enable = true;
-  locale.enable = true;
-  time.enable = true;
-  boot.enable = true;
-  kernel = {
-    enable = true;
-    kernelParams = [ "amdgpu.dcdebugmask=0x10" ];
+  lachesis = {
+    nixpkgs.enable = true;
+    locale.enable = true;
+    time.enable = true;
+    boot.enable = true;
+    kernel = {
+      enable = true;
+      kernelParams = [ "amdgpu.dcdebugmask=0x10" ];
+    };
+    plymouth.enable = true;
+    power.enable = true;
+    disko.enable = true;
+    impermanence.enable = true;
+    networkmanager = {
+      enable = true;
+      wifiBackend = "iwd";
+    };
+    bluetooth = {
+      enable = true;
+      experimental = true;
+    };
+    docker.enable = true;
+    gum.enable = true;
+    cosmic = {
+      enable = true;
+      autoLogin = {
+        enable = true;
+        user = "max";
+      };
+    };
   };
-  plymouth.enable = true;
-  power.enable = true;
-  disko.enable = true;
+
   zramSwap = {
     enable = true;
     memoryPercent = 10;
     priority = 100;
-  };
-  impermanence.enable = true;
-  networkmanager = {
-    enable = true;
-    wifiBackend = "iwd";
-  };
-  bluetooth = {
-    enable = true;
-    experimental = true;
-  };
-  docker.enable = true;
-  gum.enable = true;
-  cosmic = {
-    enable = true;
-    autoLogin = {
-      enable = true;
-      user = "max";
-    };
   };
 
   users.users.max = {

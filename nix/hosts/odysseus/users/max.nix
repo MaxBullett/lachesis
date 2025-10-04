@@ -7,35 +7,36 @@
   home.username = "max";
   home.homeDirectory = "/home/max";
 
-  userImpermanence = {
-    enable = true;
-    preserve = {
-      directories = [
-        ".ssh"
-        ".gnupg"
-        "Code"
-        "Documents"
-        "Pictures"
-        "Music"
-        "Videos"
-        "Projects"
-        "Work"
-        ".mozilla"
-        ".config/cosmic"
-        ".config/git"
-        ".config/JetBrains"
-      ];
-      files = [];
+  lachesis = {
+    userImpermanence = {
+      enable = true;
+      preserve = {
+        directories = [
+          ".ssh"
+          ".gnupg"
+          "Code"
+          "Documents"
+          "Pictures"
+          "Music"
+          "Videos"
+          "Projects"
+          "Work"
+          ".mozilla"
+          ".config/cosmic"
+          ".config/git"
+          ".config/JetBrains"
+        ];
+        files = [];
+      };
+      persist = {
+        directories = [
+          "Downloads"
+        ];
+        files = [ ];
+      };
     };
-    persist = {
-      directories = [
-        "Downloads"
-      ];
-      files = [ ];
-    };
+    steam.enable = true;
   };
-
-  steam.enable = true;
 
   programs.zsh = {
     enable = true;
@@ -47,7 +48,6 @@
       eval "$(direnv hook zsh)"
     '';
   };
-
   programs.git = {
     enable = true;
     userName = "Max Bullett";

@@ -1,4 +1,5 @@
-# Nix Config Repository
+# Lachesis, disposer of fates
+## A nix config repository
 
 This repository provides a flake-driven, modular configuration for NixOS. It is designed to be reusable, declarative, and easy to extend.
 

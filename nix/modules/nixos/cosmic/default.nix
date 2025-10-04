@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkOption types;
-  cfg = config.cosmic;
+  cfg = config.lachesis.cosmic;
 in {
-  options.cosmic = {
+  options.lachesis.cosmic = {
     enable = mkEnableOption "COSMIC desktop environment";
     greeter = {
       enable = mkOption {

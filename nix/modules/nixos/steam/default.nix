@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 let
   inherit (lib) anyUser mkIf;
-  enable = anyUser config (user: user.steam.enable);
+  enable = anyUser config (user: user.lachesis.steam.enable);
 in {
   config = mkIf enable {
     programs.steam = {

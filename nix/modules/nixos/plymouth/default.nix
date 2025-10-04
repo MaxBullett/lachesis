@@ -1,9 +1,9 @@
 { config, lib, pkgs, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkOption types;
-  cfg = config.plymouth;
+  cfg = config.lachesis.plymouth;
 in {
-  options.plymouth = {
+  options.lachesis.plymouth = {
     enable = mkEnableOption "Enable Plymouth splash during boot";
 
     themePackages = mkOption {

@@ -1,10 +1,10 @@
 { config, lib, pkgs, ... }:
 let
   inherit (lib) mkEnableOption mkIf;
-  cfg = config.gum;
+  cfg = config.lachesis.gum;
 
 in {
-  options.gum = {
+  options.lachesis.gum = {
     enable = mkEnableOption "Enable gum";
   };
 

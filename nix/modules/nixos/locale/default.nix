@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkEnableOption mkIf mkOption optionalAttrs types;
-  cfg = config.locale;
+  cfg = config.lachesis.locale;
 in {
-  options.locale = {
+  options.lachesis.locale = {
     enable = mkEnableOption "Enable locale settings (i18n and console)";
 
     defaultLocale = mkOption {

@@ -1,18 +1,15 @@
 { config, inputs, lib, ... }:
 let
   inherit (lib)
-    filterNormalUsers
-    mapAttrsToList
     mkEnableOption
     mkIf
     mkOption
-    removePrefix
     types;
-  cfg = config.impermanence;
+  cfg = config.lachesis.impermanence;
 in {
   imports = [ inputs.impermanence.nixosModules.impermanence ];
 
-  options.impermanence = {
+  options.lachesis.impermanence = {
     enable = mkEnableOption "Enable Impermanence with persist and preserve";
     persist = {
       path = mkOption {

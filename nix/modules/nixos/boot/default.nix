@@ -1,9 +1,9 @@
 { config, lib, ... }:
 let
   inherit (lib) mkDefault mkIf mkOption types;
-  cfg = config.boot;
+  cfg = config.lachesis.boot;
 in {
-  options.boot = {
+  options.lachesis.boot = {
     enable = mkOption {
       type = types.bool;
       default = true;
