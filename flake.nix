@@ -46,8 +46,7 @@
       extendedInputs = inputs // {
         nixpkgs = nixpkgs // { lib = extendedLib; };
       };
-    in
-    let
+
       result = inputs.blueprint {
         inputs = extendedInputs;
         prefix = "nix/";

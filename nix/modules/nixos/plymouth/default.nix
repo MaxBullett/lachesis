@@ -23,8 +23,8 @@ in {
     boot = {
       plymouth = {
         enable = true;
-        themePackages = cfg.themePackages;
-        theme = cfg.theme;
+        inherit (cfg) themePackages;
+        inherit (cfg) theme;
       };
 
       kernelParams = [

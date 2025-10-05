@@ -47,7 +47,7 @@ in {
     };
   };
 
-  config = (mkIf cfg.enable {
+  config = mkIf cfg.enable {
     # Ensure roots exist at boot
     fileSystems.${cfg.persist.path}.neededForBoot = true;
     fileSystems.${cfg.preserve.path}.neededForBoot = true;
@@ -76,8 +76,8 @@ in {
       };
       "${cfg.preserve.path}" = {
         hideMounts = true;
-        directories = cfg.preserve.directories;
-        files       = cfg.preserve.files;
+        inherit (cfg.preserve) directories;
+        inherit (cfg.preserve) files;
       };
     };
 
@@ -98,5 +98,5 @@ in {
 
     # Make journald persistent under /persist
     services.journald.storage = "persistent";
-  });
+  };
 }

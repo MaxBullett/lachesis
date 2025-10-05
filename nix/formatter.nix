@@ -63,7 +63,7 @@ formatter
 // {
   passthru = formatter.passthru // {
     tests = {
-      check = check;
+      inherit check;
     };
   };
 }

@@ -16,7 +16,7 @@ in {
     boot = {
       kernelPackages = pkgs.linuxPackages_latest;
       initrd.systemd.enable = true;
-      kernelParams = cfg.kernelParams;
+      inherit (cfg) kernelParams;
     };
   };
 }

@@ -48,13 +48,13 @@ in {
     # Map to HM impermanence roots
     home.persistence."${cfg.preserve.path}/home/${username}" = {
       allowOther = true;
-      directories = cfg.preserve.directories;
-      files = cfg.preserve.files;
+      inherit (cfg.preserve) directories;
+      inherit (cfg.preserve) files;
     };
     home.persistence."${cfg.persist.path}/home/${username}" = {
       allowOther = true;
-      directories = cfg.persist.directories;
-      files = cfg.persist.files;
+      inherit (cfg.persist) directories;
+      inherit (cfg.persist) files;
     };
   };
 }

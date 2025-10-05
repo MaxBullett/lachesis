@@ -34,11 +34,11 @@ in {
 
   config = mkIf cfg.enable {
     i18n = {
-      defaultLocale = cfg.defaultLocale;
-      extraLocaleSettings = cfg.extraLocaleSettings;
+      inherit (cfg) defaultLocale;
+      inherit (cfg) extraLocaleSettings;
     }
     // (optionalAttrs (cfg.supportedLocales != []) {
-      supportedLocales = cfg.supportedLocales;
+      inherit (cfg) supportedLocales;
     });
 
     console.keyMap = cfg.keyMap;

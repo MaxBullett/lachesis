@@ -15,7 +15,8 @@
     boot.enable = true;
     kernel = {
       enable = true;
-      kernelParams = [ "amdgpu.dcdebugmask=0x10" ];
+      kernelParams = [
+      ];
     };
     plymouth.enable = true;
     power.enable = true;
@@ -56,27 +57,36 @@
     ];
   };
   users.groups.wheel.members = [ "max" ];
-  security.sudo.enable = true;
 
-  # Apps
-  programs.firefox.enable = true;
-  programs.neovim = {
-    enable = true;
-    defaultEditor = true;
+  security = {
+    sudo.enable = true;
+    polkit.enable = true;
+    pki.certificates = [
+        #(builtins.readFile ./daadev-ca.crt)
+    ];
   };
 
-  security.polkit.enable = true;
-  services.gnome.gnome-keyring.enable = true;
-
-  # Firmware + updates
-  services.fwupd.enable = true;
-
-  # Pipewire
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    pulse.enable = true;
-    wireplumber.enable = true;
+  # Apps
+  programs = {
+    firefox.enable = true;
+    neovim = {
+      enable = true;
+      defaultEditor = true;
+    };
+  };
+  services = {
+    gnome.gnome-keyring.enable = true;
+    fwupd.enable = true;
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      pulse.enable = true;
+      wireplumber.enable = true;
+    };
+    hardware.bolt.enable = true;
+    journald.extraConfig = ''
+        SystemMaxUse=1G
+      '';
   };
   # Turn on LC3 in WirePlumber (LE Audio). Optional: disable HW volume if too “steppy”.
   environment.etc."wireplumber/wireplumber.conf.d/10-bluez-lc3.conf".text = ''
@@ -86,9 +96,6 @@
     }
   '';
 
-  # USB4/Thunderbolt authorization
-  services.hardware.bolt.enable = true;
-
   # Sensors/monitoring
   environment.systemPackages = with pkgs; [ lm_sensors ];
 
@@ -96,16 +103,6 @@
   systemd.sleep.extraConfig = ''
     SuspendState=mem
     SuspendMode=
-  '';
-
-  # ssh certs
-  security.pki.certificates = [
-    #(builtins.readFile ./daadev-ca.crt)
-  ];
-
-  # Debugging
-  services.journald.extraConfig = ''
-    SystemMaxUse=1G
   '';
 
   system.stateVersion = "25.05";

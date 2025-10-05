@@ -2,21 +2,22 @@
 let
   inherit (lib) mkIf mkOption types;
   cfg = config.lachesis.nix;
-in {
+in
+{
   options.lachesis.nix = {
     extraSubstituters = mkOption {
       type = with types; listOf str;
-      default = [];
+      default = [ ];
       description = "Additional substituters to append to nix.settings.substituters";
     };
 
     extraTrustedPublicKeys = mkOption {
       type = with types; listOf str;
-      default = [];
+      default = [ ];
       description = "Additional cache public keys to append to nix.settings.trusted-public-keys";
     };
 
-    nh  = mkOption {
+    nh = mkOption {
       type = types.bool;
       default = true;
       description = "Enable programs.nh";
@@ -51,7 +52,7 @@ in {
 
     programs.nh = mkIf cfg.nh {
       enable = true;
-      flake = "git+ssh://git@github.com:MaxBullett/lachesis.git?ref=main";
+      flake = "git+ssh://git@github.com:MaxBullett/lachesis.git";
       clean = {
         enable = true;
         extraArgs = "--keep-since 1w --keep 5";

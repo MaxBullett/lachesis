@@ -4,8 +4,19 @@
     flake.homeModules.default
   ];
 
-  home.username = "max";
-  home.homeDirectory = "/home/max";
+  home = {
+    username = "max";
+    homeDirectory = "/home/max";
+    packages = with pkgs; [
+      ripgrep
+      fd
+      unzip
+      jetbrains.idea-ultimate
+      jetbrains.dataspell
+      rclone
+      borgbackup
+    ];
+  };
 
   lachesis = {
     userImpermanence = {
@@ -60,16 +71,6 @@
       gpg.ssh.allowedSignersFile = "/home/max/.ssh/allowed_signers";
     };
   };
-
-  home.packages = with pkgs; [
-    ripgrep
-    fd
-    unzip
-    jetbrains.idea-ultimate
-    jetbrains.dataspell
-    rclone
-    borgbackup
-  ];
 
   home.stateVersion = "25.05";
 }

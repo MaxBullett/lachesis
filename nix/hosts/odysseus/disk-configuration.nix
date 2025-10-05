@@ -1,4 +1,4 @@
-{ ... }:
+_ :
 let
   nvme0n1 = "nvme-eui.000000000000000100a075213332eac0";
   defaultBtrfsOpts = [

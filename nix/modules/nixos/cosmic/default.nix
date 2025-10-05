@@ -46,7 +46,7 @@ in {
       cosmic-greeter.enable = cfg.greeter.enable;
       autoLogin = mkIf cfg.autoLogin.enable {
         enable = true;
-        user = cfg.autoLogin.user;
+        inherit (cfg.autoLogin) user;
       };
     };
     services.desktopManager.cosmic = {
