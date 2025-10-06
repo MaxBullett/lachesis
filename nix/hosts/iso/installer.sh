@@ -5,8 +5,10 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 export LANG=C
 
-readonly REQUIRED=(gum nix jq lsblk curl nmcli nmtui findmnt disko nixos-install nixos-enter)
+readonly REQUIRED=(gum nix jq lsblk curl nmcli nmtui findmnt disko nixos-install nixos-enter git btrfs)
 readonly FLAKE=/iso/lachesis
+: "${INSTALL_REPO:=https://github.com/MaxBullett/lachesis.git}"
+readonly INSTALL_REPO
 declare -a DECLARED_DISKS=()
 declare -a INSTALL_USERS=()
 SELECTED_PLAN=""
@@ -369,6 +371,70 @@ execute_plan() {
   esac
 }
 
+populate_configuration_repository() {
+  local target_root=/mnt/etc/nixos
+  local target_parent=/mnt/etc
+
+  if [[ ! -d $target_parent ]]; then
+    plan_step "Create ${target_parent}" mkdir -p "$target_parent"
+  fi
+
+  if [[ -d $target_root/.git ]]; then
+    local existing_remote=""
+    existing_remote=$(git -C "$target_root" remote get-url origin 2>/dev/null || true)
+    if [[ -n $existing_remote && $existing_remote != "$INSTALL_REPO" ]]; then
+      warn "Existing repository at $target_root uses remote $existing_remote; skipping automatic update"
+      return
+    fi
+
+    plan_step "Update repository at ${target_root}" git -C "$target_root" pull --ff-only
+    return
+  fi
+
+  if [[ -e $target_root ]]; then
+    local backup=""
+    backup=${target_root}.bak.$(date +%s)
+    warn "Existing $target_root detected; moving to ${backup}"
+    plan_step "Backup ${target_root}" mv "$target_root" "$backup"
+  fi
+
+  plan_step "Clone configuration into ${target_root}" git clone "$INSTALL_REPO" "$target_root"
+}
+
+create_root_template_snapshot() {
+  local snapshot_root=/mnt/.snapshots
+  local snapshot_name=purge-blank
+  local snapshot_path="${snapshot_root}/${snapshot_name}"
+  local mounted_here=0
+
+  if [[ ! -d $snapshot_root ]]; then
+    plan_step "Create ${snapshot_root}" mkdir -p "$snapshot_root"
+  fi
+
+  if ! mountpoint -q "$snapshot_root"; then
+    local root_device
+    root_device=$(findmnt -n -o SOURCE /mnt 2>/dev/null || true)
+    if [[ -z $root_device ]]; then
+      warn "Unable to determine device backing /mnt; skipping template snapshot"
+      return
+    fi
+
+    plan_step "Mount snapshots subvolume" mount -t btrfs -o subvol=@snapshots "$root_device" "$snapshot_root"
+    mounted_here=1
+  fi
+
+  if [[ -e $snapshot_path ]]; then
+    warn "Template snapshot ${snapshot_path} already exists; leaving in place"
+    return
+  fi
+
+  plan_step "Create read-only template snapshot" btrfs subvolume snapshot -r /mnt "$snapshot_path"
+
+  if [[ $mounted_here -eq 1 ]]; then
+    plan_step "Unmount snapshots subvolume" umount "$snapshot_root"
+  fi
+}
+
 finalize_installation() {
   case $SELECTED_PLAN in
     full-install)
@@ -389,6 +455,10 @@ finalize_installation() {
       else
         warn "No users discovered for password setup"
       fi
+
+      populate_configuration_repository
+
+      create_root_template_snapshot
 
       plan_step "Unmount target filesystems" disko --mode unmount --flake "${FLAKE}#${HOST}"
 

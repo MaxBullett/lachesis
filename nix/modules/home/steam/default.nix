@@ -7,8 +7,9 @@ in {
     enable = mkEnableOption "Enable steam";
   };
   config = mkIf cfg.enable {
-    lachesis.userImpermanence.persist.directories = [
+    lachesis.impermanence.persist.directories = [
       ".local/share/Steam"
+      ".steam"
     ];
   };
 }

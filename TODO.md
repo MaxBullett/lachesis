@@ -1,6 +1,7 @@
 # TODO
 
-- Rewrite installer
+- Snapshots
+- Secrets
 - Remaining modules in Odysseus
 - Cachix hooks
 - Home modules

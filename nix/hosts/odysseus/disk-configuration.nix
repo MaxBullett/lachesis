@@ -52,13 +52,15 @@ in {
             size = "40G";
             content = {
               type = "swap";
+              discardPolicy = "both";
+              resumeDevice = true;
             };
           };
           root = {
             size = "100%FREE";
             content = {
               type = "btrfs";
-              extraArgs = [ "-f" ];
+              extraArgs = [ "-fL" "root" ];
               subvolumes = {
                 "@purge" = {
                   mountpoint = "/";

@@ -1,17 +1,12 @@
-{ config, inputs, lib, ... }:
+{ config, lib, osConfig, ... }:
 let
-  inherit (lib) mkEnableOption mkIf mkOption types;
-  cfg = config.lachesis.userImpermanence;
-  username = config.home.username or (throw "home.username must be set before importing home.modules.impermanence");
+  inherit (lib) mkOption types;
 in {
-  imports = [ inputs.impermanence.homeManagerModules.impermanence ];
-
-  options.lachesis.userImpermanence = {
-    enable = mkEnableOption "impermanence with dual persistent roots (/persist and /preserve)";
+  options.lachesis.impermanence = {
     persist = {
       path = mkOption {
         type = types.str;
-        default = "/persist";
+        default = "${osConfig.lachesis.impermanence.persist.path}${config.home.homeDirectory}";
         description = "Root for persisted but not snapshot data.";
       };
       directories = mkOption {
@@ -28,7 +23,7 @@ in {
     preserve = {
       path = mkOption {
         type = types.str;
-        default = "/preserve";
+        default = "${osConfig.lachesis.impermanence.preserve.path}${config.home.homeDirectory}";
         description = "Root for persisted and snapshot data.";
       };
       directories = mkOption {
@@ -41,20 +36,6 @@ in {
         default = [];
         description = "Home relative files persisted after reboot and preserved by snapshot.";
       };
-    };
-  };
-
-  config = mkIf cfg.enable {
-    # Map to HM impermanence roots
-    home.persistence."${cfg.preserve.path}/home/${username}" = {
-      allowOther = true;
-      inherit (cfg.preserve) directories;
-      inherit (cfg.preserve) files;
-    };
-    home.persistence."${cfg.persist.path}/home/${username}" = {
-      allowOther = true;
-      inherit (cfg.persist) directories;
-      inherit (cfg.persist) files;
     };
   };
 }

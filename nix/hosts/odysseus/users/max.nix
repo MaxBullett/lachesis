@@ -19,8 +19,7 @@
   };
 
   lachesis = {
-    userImpermanence = {
-      enable = true;
+    impermanence = {
       preserve = {
         directories = [
           ".ssh"
