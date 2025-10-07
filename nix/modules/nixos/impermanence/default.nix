@@ -1,9 +1,7 @@
-{ config, inputs, lib, ... }:
+{ config, inputs, lib, pkgs, ... }:
 let
   inherit (lib)
-    escapeShellArg
     mapAttrs
-    mkBefore
     mkEnableOption
     mkIf
     mkOption
@@ -68,48 +66,65 @@ in {
       "d ${cfg.preserve.path}/home 0755 root root -"
     ];
 
+    boot.initrd.systemd = {
+      emergencyAccess = true;
+      services.rollback = {
+        description = "Rollback BTRFS root subvolume to a pristine state";
+        wantedBy = [ "initrd.target" ];
+        wants = [ "lvm2-activation.service" ];
+        after = [ "lvm2-activation.service" "local-fs-pre.target"];
+        before = [ "sysroot.mount" ];
+        path = with pkgs; [
+          btrfs-progs
+        ];
+        unitConfig = {
+          ConditionKernelCommandLine = [ "!resume=" ];
+          DefaultDependencies = "no";
+          RequiresMountsFor = [ "${rootDevice}" ];
+        };
+        serviceConfig = {
+          StandardOutput = "journal+console";
+          StandardError = "journal+console";
+          Type = "oneshot";
+          UMask = "0077";
+        };
+        script = ''
+          set -euo pipefail
+
+          export PATH="$PATH:/bin"
+          mkdir -p /mnt
+          echo "Rolling back @purge on ${rootDevice}."
+          mount -o subvol=/ "${rootDevice}" /mnt
+
+          while read -r subvolume; do
+            echo "Deleting /$subvolume subvolume"
+            btrfs subvolume delete "/mnt/$subvolume"
+          done < <(
+            btrfs subvolume list -o /mnt/@purge |
+            cut -d' ' -f9- |
+            sort -r
+          )
+
+          echo "Deleting /@purge subvolume"
+          btrfs subvolume delete /mnt/@purge
+
+          if [[ -d /mnt/@snapshots/purge-blank ]]; then
+            echo "Restoring blank /@purge subvolume from template"
+            btrfs subvolume snapshot /mnt/@snapshots/purge-blank /mnt/@purge
+          else
+            echo "Template /@snapshots/purge-blank missing; recreating it"
+            btrfs subvolume create /mnt/@purge
+            btrfs subvolume snapshot -r /mnt/@purge /mnt/@snapshots/purge-blank
+          fi
+
+          umount /mnt
+        '';
+      };
+    };
+
     # Ensure persistent roots exist at boot
     fileSystems.${cfg.persist.path}.neededForBoot = true;
     fileSystems.${cfg.preserve.path}.neededForBoot = true;
-
-    # Script to wipe the root subvolume at boot
-    boot.initrd.systemd.services.lachesis-restore-root = {
-      description = "Restore blank @purge subvolume";
-      wantedBy = [ "sysroot.mount" ];
-      before = [ "sysroot.mount" ];
-      after = [ "initrd-root-device.target" ];
-      requires = [ "initrd-root-device.target" ];
-      unitConfig.DefaultDependencies = "no";
-      serviceConfig.Type = "oneshot";
-      script = ''
-        set -euo pipefail
-
-        mkdir -p /mnt
-        mount -t btrfs -o subvolid=5 ${escapeShellArg rootDevice} /mnt
-
-        if btrfs subvolume show /mnt/@purge &>/dev/null; then
-          btrfs subvolume list -o /mnt/@purge |
-          cut -f9 -d' ' |
-          while read subvolume; do
-            echo "Deleting /$subvolume subvolume."
-            btrfs subvolume delete "/mnt/$subvolume"
-          done
-
-          echo "Deleting /@purge subvolume."
-          btrfs subvolume delete /mnt/@purge
-        fi
-
-        if [ ! -e /mnt/@snapshots/purge-blank ]; then
-          echo "Missing purge-blank snapshot, dropping to emergency shell." >&2
-          exit 1
-        fi
-
-        echo "Restoring blank /@purge subvolume..."
-        btrfs subvolume snapshot /mnt/@snapshots/purge-blank /mnt/@purge
-
-        umount /mnt
-      '';
-    };
 
     environment.persistence = {
       # Persisted directories and files
@@ -117,17 +132,18 @@ in {
         hideMounts = true;
         # System
         directories = [
-          "/var/lib/systemd/coredump"
-          "/var/lib/systemd/timers"
+          "/var/lib/btrfs"
+          "/var/lib/nixos"
+          "/var/lib/systemd"
           "/var/log"
         ] ++ cfg.persist.directories;
         files = [
           "/etc/machine-id"
-          "/etc/shadow" # TODO: Remove when declarative setup complete
           "/etc/ssh/ssh_host_ed25519_key"
           "/etc/ssh/ssh_host_ed25519_key.pub"
           "/etc/ssh/ssh_host_rsa_key"
           "/etc/ssh/ssh_host_rsa_key.pub"
+          "/var/lib/logrotate.status"
         ] ++ cfg.persist.files;
 
         # User
@@ -143,7 +159,6 @@ in {
         # System
         directories = [
           "/etc/nixos"
-          "/var/lib/nixos"
         ] ++ cfg.preserve.directories;
         files = [
         ] ++ cfg.preserve.files;

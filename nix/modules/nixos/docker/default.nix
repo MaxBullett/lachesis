@@ -1,4 +1,4 @@
-{ config, lib, options, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   inherit (lib)
     any
@@ -8,8 +8,7 @@ let
     filterSudoUsers
     mkAfter
     mkEnableOption
-    mkIf
-    mkIfOptionEnabled;
+    mkIf;
   cfg = config.lachesis.docker;
 in {
   options.lachesis.docker = {
@@ -17,6 +16,8 @@ in {
   };
 
   config = (mkIf cfg.enable {
+    environment.systemPackages = [ pkgs.docker-compose ];
+
     virtualisation = {
       docker = {
         enable = true;
@@ -36,11 +37,6 @@ in {
       members = mkAfter (attrNames (filterSudoUsers (filterNormalUsers config.users.users)));
     };
 
-    environment.systemPackages = [ pkgs.docker-compose ];
-  })
-  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options.lachesis config {
-    lachesis.impermanence.persist.directories = [
-      { directory = "/var/lib/docker"; user = "root"; group = "root"; mode = "0710"; }
-    ];
-  }));
+    lachesis.impermanence.persist.directories = [ "/var/lib/docker" ];
+  });
 }

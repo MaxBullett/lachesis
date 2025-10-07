@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Guided installer for flake-based deployments. Handles disko, install,
-# account password prompts, and cleanup for the selected host.
+# Guided installer for flake-based deployments.
 set -Eeuo pipefail
 IFS=$'\n\t'
 export LANG=C
@@ -10,24 +9,7 @@ readonly FLAKE=/iso/lachesis
 : "${INSTALL_REPO:=https://github.com/MaxBullett/lachesis.git}"
 readonly INSTALL_REPO
 declare -a DECLARED_DISKS=()
-declare -a INSTALL_USERS=()
 SELECTED_PLAN=""
-
-format_user_list() {
-  local -n list_ref=$1
-  local header=$2
-
-  if ((${#list_ref[@]} == 0)); then
-    printf '%s:\n  (none)\n' "$header"
-    return
-  fi
-
-  local user
-  printf '%s:\n' "$header"
-  for user in "${list_ref[@]}"; do
-    printf '  - %s\n' "$user"
-  done
-}
 
 info(){ local IFS=' '; gum style --foreground "#8AADF4" "🛈 $*"; }
 ok(){ local IFS=' '; gum style --foreground "#A6DA95" "✔ $*"; }
@@ -218,24 +200,6 @@ verify_declared_disks() {
   ok "Declared disks present"
 }
 
-fetch_install_users() {
-  INSTALL_USERS=()
-
-  local json
-  if ! json=$(nix eval --json --no-write-lock-file \
-      ".#nixosConfigurations.${HOST}.config.users.users" \
-      --apply 'users: let names = builtins.attrNames users; in builtins.filter (name: let user = builtins.getAttr name users; in (user.isNormalUser or false) || name == "root") names' 2>/dev/null); then
-    return 1
-  fi
-
-  if [[ $(jq -r type <<<"$json" 2>/dev/null) != "array" ]]; then
-    return 1
-  fi
-
-  mapfile -t INSTALL_USERS < <(jq -r '.[]' <<<"$json")
-  return 0
-}
-
 prepare_mount_environment() {
   info "Preparing mount environment"
 
@@ -371,36 +335,6 @@ execute_plan() {
   esac
 }
 
-populate_configuration_repository() {
-  local target_root=/mnt/etc/nixos
-  local target_parent=/mnt/etc
-
-  if [[ ! -d $target_parent ]]; then
-    plan_step "Create ${target_parent}" mkdir -p "$target_parent"
-  fi
-
-  if [[ -d $target_root/.git ]]; then
-    local existing_remote=""
-    existing_remote=$(git -C "$target_root" remote get-url origin 2>/dev/null || true)
-    if [[ -n $existing_remote && $existing_remote != "$INSTALL_REPO" ]]; then
-      warn "Existing repository at $target_root uses remote $existing_remote; skipping automatic update"
-      return
-    fi
-
-    plan_step "Update repository at ${target_root}" git -C "$target_root" pull --ff-only
-    return
-  fi
-
-  if [[ -e $target_root ]]; then
-    local backup=""
-    backup=${target_root}.bak.$(date +%s)
-    warn "Existing $target_root detected; moving to ${backup}"
-    plan_step "Backup ${target_root}" mv "$target_root" "$backup"
-  fi
-
-  plan_step "Clone configuration into ${target_root}" git clone "$INSTALL_REPO" "$target_root"
-}
-
 create_root_template_snapshot() {
   local snapshot_root=/mnt/.snapshots
   local snapshot_name=purge-blank
@@ -425,6 +359,9 @@ create_root_template_snapshot() {
 
   if [[ -e $snapshot_path ]]; then
     warn "Template snapshot ${snapshot_path} already exists; leaving in place"
+    if [[ $mounted_here -eq 1 ]]; then
+      plan_step "Unmount snapshots subvolume" umount "$snapshot_root"
+    fi
     return
   fi
 
@@ -438,26 +375,6 @@ create_root_template_snapshot() {
 finalize_installation() {
   case $SELECTED_PLAN in
     full-install)
-      if ((${#INSTALL_USERS[@]} == 0)); then
-        if ! fetch_install_users; then
-          warn "Unable to determine users for password setup; skipping automatic password prompts"
-        fi
-      fi
-
-      if ((${#INSTALL_USERS[@]} > 0)); then
-        local summary
-        summary=$(format_user_list INSTALL_USERS "Setting passwords for")
-        info "$summary"
-        local user
-        for user in "${INSTALL_USERS[@]}"; do
-          plan_step "Set password for ${user}" nixos-enter --root /mnt -- passwd "$user"
-        done
-      else
-        warn "No users discovered for password setup"
-      fi
-
-      populate_configuration_repository
-
       create_root_template_snapshot
 
       plan_step "Unmount target filesystems" disko --mode unmount --flake "${FLAKE}#${HOST}"
@@ -498,22 +415,6 @@ summarize() {
 
   if [[ -n $SELECTED_PLAN ]]; then
     info "Selected plan: $SELECTED_PLAN"
-  fi
-
-  if [[ $SELECTED_PLAN == "full-install" ]]; then
-    if fetch_install_users; then
-      if ((${#INSTALL_USERS[@]} > 0)); then
-        local summary
-        summary=$(format_user_list INSTALL_USERS "Users queued for password setup")
-        info "$summary"
-      else
-        warn "No normal users found for password setup"
-      fi
-    else
-      warn "Unable to evaluate users; password setup may need manual handling"
-    fi
-
-    info "Installer will prompt for passwords, unmount, then ask before rebooting"
   fi
 }
 

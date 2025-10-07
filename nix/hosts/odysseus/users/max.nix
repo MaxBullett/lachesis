@@ -31,18 +31,26 @@
           "Videos"
           "Projects"
           "Work"
-          ".mozilla"
-          ".config/cosmic"
-          ".config/git"
-          ".config/JetBrains"
         ];
-        files = [];
+        files = [ ];
       };
       persist = {
         directories = [
           "Downloads"
+          ".mozilla"
+          ".config/cosmic"
+          ".local/state/cosmic"
+          ".config/git"
+          ".config/JetBrains"
+          ".local/share/JetBrains"
+          ".cache/Jetbrains"
+          ".java/.userPrefs/jetbrains"
+          ".local/share/zsh"
         ];
-        files = [ ];
+        files = [
+          ".config/cosmic-initial-setup-done"
+          ".java/.userPrefs/prefs.xml"
+        ];
       };
     };
     direnv.enable = true;

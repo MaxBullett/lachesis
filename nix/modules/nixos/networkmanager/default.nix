@@ -1,6 +1,6 @@
-{ config, lib, options, ... }:
+{ config, lib, ... }:
 let
-  inherit (lib) mkEnableOption mkIf mkIfOptionEnabled mkOption optionalAttrs types;
+  inherit (lib) mkEnableOption mkIf mkOption optionalAttrs types;
   cfg = config.lachesis.networkmanager;
 in {
   options.lachesis.networkmanager = {
@@ -32,11 +32,7 @@ in {
     // optionalAttrs (cfg.wifiBackend == "iwd") {
       wireless.iwd.enable = true;
     };
-  })
-  // (mkIf cfg.enable (mkIfOptionEnabled [ "impermanence" "enable" ] options.lachesis config {
-    lachesis.impermanence.persist.directories = [
-      { directory = "/etc/NetworkManager/system-connections"; user = "root"; group = "root"; mode = "0700"; }
-      { directory = "/var/lib/NetworkManager"; user = "root"; group = "root"; mode = "0700"; }
-    ];
-  }));
+
+    lachesis.impermanence.persist.directories = [ "/etc/NetworkManager/system-connections" "/var/lib/NetworkManager" ];
+  });
 }

@@ -12,11 +12,9 @@
     nixpkgs.enable = true;
     locale.enable = true;
     time.enable = true;
-    boot.enable = true;
-    kernel = {
+    boot = {
       enable = true;
-      kernelParams = [
-      ];
+      kernelParams = [];
     };
     plymouth.enable = true;
     power.enable = true;
@@ -48,6 +46,7 @@
   };
 
   users.users.max = {
+    initialPassword = "password";
     isNormalUser = true;
     home = "/home/max";
     extraGroups = [
