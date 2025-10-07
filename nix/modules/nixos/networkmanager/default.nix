@@ -33,6 +33,6 @@ in {
       wireless.iwd.enable = true;
     };
 
-    lachesis.impermanence.persist.directories = [ "/etc/NetworkManager/system-connections" "/var/lib/NetworkManager" ];
+    lachesis.preservation.persist.directories = [ "/etc/NetworkManager/system-connections" "/var/lib/NetworkManager" ];
   });
 }

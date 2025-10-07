@@ -27,9 +27,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Persist state
-    # https://github.com/nix-community/impermanence
-    impermanence.url = "github:nix-community/impermanence";
+    # Ephemeral root
+    # https://github.com/nix-community/preservation
+    preservation.url = "github:nix-community/preservation";
 
     # Hardware optimizations
     # https://github.com/NixOS/nixos-hardware

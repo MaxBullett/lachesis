@@ -19,7 +19,7 @@
   };
 
   lachesis = {
-    impermanence = {
+    preservation = {
       preserve = {
         directories = [
           ".ssh"

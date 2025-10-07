@@ -19,7 +19,7 @@
     plymouth.enable = true;
     power.enable = true;
     disko.enable = true;
-    impermanence.enable = true;
+    preservation.enable = true;
     networkmanager = {
       enable = true;
       wifiBackend = "iwd";

@@ -37,6 +37,6 @@ in {
       members = mkAfter (attrNames (filterSudoUsers (filterNormalUsers config.users.users)));
     };
 
-    lachesis.impermanence.persist.directories = [ "/var/lib/docker" ];
+    lachesis.preservation.persist.directories = [ "/var/lib/docker" ];
   });
 }

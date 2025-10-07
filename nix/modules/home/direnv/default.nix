@@ -22,6 +22,6 @@ in {
         ];
       };
     };
-    lachesis.impermanence.persist.directories = [ ".local/share/direnv" ];
+    lachesis.preservation.persist.directories = [ ".local/share/direnv" ];
   };
 }

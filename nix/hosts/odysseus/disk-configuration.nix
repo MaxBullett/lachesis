@@ -1,4 +1,4 @@
-_ :
+{config, ...} :
 let
   nvme0n1 = "nvme-eui.000000000000000100a075213332eac0";
   defaultBtrfsOpts = [
@@ -61,6 +61,13 @@ in {
             content = {
               type = "btrfs";
               extraArgs = [ "-fL" "root" ];
+              postCreateHook = ''
+                set -euo pipefail
+                MNTPOINT=$(mktemp -d)
+                mount -t btrfs "${config.fileSystems."/".device}" "$MNTPOINT"
+                trap 'umount "$MNTPOINT"; rm -d "$MNTPOINT"' EXIT
+                btrfs subvolume snapshot -r "$MNTPOINT"/@purge "$MNTPOINT"/@snapshots/purge-blank
+              '';
               subvolumes = {
                 "@purge" = {
                   mountpoint = "/";

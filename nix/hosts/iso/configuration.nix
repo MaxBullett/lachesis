@@ -24,7 +24,6 @@
 
   environment.systemPackages = with pkgs; [
     git curl neovim jq
-    (writeShellScriptBin "installer" (builtins.readFile ./installer.sh))
   ];
 
   # Filesystems you’re likely to work with during install

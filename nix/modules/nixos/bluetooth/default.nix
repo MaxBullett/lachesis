@@ -25,6 +25,6 @@ in {
         General.Experimental = true;
       };
     };
-    lachesis.impermanence.persist.directories = [ "/var/lib/bluetooth" ];
+    lachesis.preservation.persist.directories = [ "/var/lib/bluetooth" ];
   });
 }
