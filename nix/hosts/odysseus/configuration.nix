@@ -53,9 +53,9 @@
       "networkmanager"
       "audio"
       "video"
+      "wheel"
     ];
   };
-  users.groups.wheel.members = [ "max" ];
 
   security = {
     sudo.enable = true;

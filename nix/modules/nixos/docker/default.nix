@@ -2,9 +2,7 @@
 let
   inherit (lib)
     any
-    attrNames
     attrValues
-    filterNormalUsers
     filterSudoUsers
     mkAfter
     mkEnableOption
@@ -34,7 +32,7 @@ in {
     };
 
     users.groups.docker = {
-      members = mkAfter (attrNames (filterSudoUsers (filterNormalUsers config.users.users)));
+      members = mkAfter (filterSudoUsers config.users.users);
     };
 
     lachesis.preservation.persist.directories = [ "/var/lib/docker" ];

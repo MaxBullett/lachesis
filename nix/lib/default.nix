@@ -19,11 +19,15 @@ inputs.nixpkgs.lib.extend (
 
     # Filter only normal users (non-system users)
     filterNormalUsers = users:
-      filterAttrs (_: u: (u.isNormalUser or false)) users;
+      map (u: u.name) (attrValues (
+        filterAttrs (_: user: user.isNormalUser) users
+      ));
 
     # Filter only sudo users (in "wheel" group)
     filterSudoUsers = users:
-      filterAttrs (_: u: elem "wheel" (u.extraGroups or [])) users;
+      map (u: u.name) (attrValues (
+        filterAttrs (_: user: user ? extraGroups && elem "wheel" user.extraGroups) users
+      ));
 
     # List of home-manager users that match provided filter function
     filterUsers = cfg: pred: let
