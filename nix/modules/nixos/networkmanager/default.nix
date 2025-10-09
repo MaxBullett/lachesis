@@ -30,7 +30,14 @@ in {
       };
     }
     // optionalAttrs (cfg.wifiBackend == "iwd") {
-      wireless.iwd.enable = true;
+      wireless.iwd = {
+        enable = true;
+        settings = {
+          Settings = {
+            AutoConnect = true;
+          };
+        };
+      };
     };
 
     lachesis.preservation.persist.directories = [ "/etc/NetworkManager/system-connections" "/var/lib/NetworkManager" ];

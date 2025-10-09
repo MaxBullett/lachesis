@@ -59,6 +59,7 @@
 
   security = {
     sudo.enable = true;
+    rtkit.enable = true;
     polkit.enable = true;
     pki.certificates = [
         #(builtins.readFile ./daadev-ca.crt)
@@ -79,6 +80,7 @@
     pipewire = {
       enable = true;
       alsa.enable = true;
+      alsa.support32Bit = true;
       pulse.enable = true;
       wireplumber.enable = true;
     };
