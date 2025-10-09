@@ -24,7 +24,6 @@
         directories = [
           ".ssh"
           ".gnupg"
-          "Code"
           "Documents"
           "Pictures"
           "Music"
@@ -36,6 +35,7 @@
       };
       persist = {
         directories = [
+          "Code"
           "Downloads"
           ".mozilla"
           ".config/cosmic"
@@ -46,6 +46,7 @@
           ".cache/Jetbrains"
           ".java/.userPrefs/jetbrains"
           ".local/share/zsh"
+          ".local/state/cosmic"
         ];
         files = [
           ".config/cosmic-initial-setup-done"
