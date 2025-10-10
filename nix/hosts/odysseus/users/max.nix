@@ -37,16 +37,16 @@
         directories = [
           "Code"
           "Downloads"
-          ".mozilla"
+          ".config/git"
+          ".local/share/zsh"
           ".config/cosmic"
           ".local/state/cosmic"
-          ".config/git"
+          ".local/state/cosmic-comp"
+          ".mozilla"
           ".config/JetBrains"
           ".local/share/JetBrains"
           ".cache/Jetbrains"
           ".java/.userPrefs/jetbrains"
-          ".local/share/zsh"
-          ".local/state/cosmic"
         ];
         files = [
           ".config/cosmic-initial-setup-done"
